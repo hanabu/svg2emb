@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+
+<html lang="en">
+<head>
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta name="author" content="Hanabusa Masahiro">
+  <meta name="description" content="SVG to embroidery convertor">
+  <meta name="keywords" content="SVG,Embroidery,Convert,.dst,.hus,.jef,.pes">
+  <style type="text/css">
+<!--
+  .filebox { width:40em; }
+  table {margin-left:auto; margin-right:auto;}
+  .cmd {background-color:#cccccc; padding:0.4em; margin:0.1em; font-family:monospace; }
+  .code {padding:0.4em; margin:0.3em; border-style:solid; border-width:1px;}
+  .file {background-color:#cccccc; padding:0.4em; margin:0.1em; font-family:monospace; }
+  .num {text-align: right; }
+  kbd {text-decoration:underline;}
+-->
+  </style>
+  <title>SVG to embroidery convertor</title>
+</head>
+<body>
+<form action="/cgi-bin/svg2emb.cgi" method="POST" enctype="multipart/form-data">
+ <fieldset>
+  <legend>Convert SVG</legend>
+  <input type="hidden" name="out_format" value=".pes" >
+  <input type="file" name="svgfile" class="filebox" >
+  <input type="submit" name="SEND" value="SEND" >
+ </fieldset>
+</form>
+
+<h1>How to use</h1>
+
+<p lang="en">
+TBD.
+</p>
+<p lang="en">
+Send SVG file, then you can get embroidery machine format.
+</p>
+
+<hr>
+<h2>Source code access</h2>
+<p lang="en">
+svg2emb is licensed under BSD 3-Clause License.
+You can download source code at:
+<a href="https://github.com/hanabu/svg2emb">https://github.com/hanabu/svg2emb</a>
+</p>
+
+<hr>
+<address>
+2016-10-20 Hanabusa Masahiro
+</address>
+</body>
+</html>
