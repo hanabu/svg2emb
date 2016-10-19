@@ -24,6 +24,19 @@
 *.lib
 
 # Executables
+svg2emb
 *.exe
 *.out
 *.app
+
+# Backup files
+*~
+
+# CMake
+Makefile
+CMakeCache.txt
+cmake_install.cmake
+CMakeFiles/
+
+# Sample output
+*.pes
