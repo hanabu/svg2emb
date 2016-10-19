@@ -217,6 +217,10 @@ int main(int argc, char* argv[])
   try{
     std::vector<std::vector<math::vector2d> > stitches
       = parse_SVG(argv[1]);
+    if( stitches.empty() ){
+      fputs("Empty SVG.\n", stdout);
+      return 1;
+    }
 
     /* ToDo : reorder stitches */
 
@@ -224,8 +228,8 @@ int main(int argc, char* argv[])
 
     return 0;
   }catch(std::exception e){
-    fputs(e.what(), stderr);
-    fputs("\n", stderr);
+    fputs(e.what(), stdout);
+    fputs("\n", stdout);
     return 1;
   }
 }
