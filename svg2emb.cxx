@@ -170,12 +170,17 @@ save_embroidery(const char* filename,
       math::vector2d pos = stitch[j];
 
       if( 0==j ){
-        embPattern_addStitchAbs(pat, pos[0], pos[1], JUMP, 0);
-      }else{
-        embPattern_addStitchAbs(pat, pos[0], pos[1], NORMAL, 0);
-      }       
+        if( 0<i ){
+          /* cut thread */
+          embPattern_addStitchAbs(pat, pos[0], -pos[1], TRIM, 0);
+        }
+        /* jump to new segment */
+        embPattern_addStitchAbs(pat, pos[0], -pos[1], JUMP, 0);
+      }
+      embPattern_addStitchAbs(pat, pos[0], -pos[1], NORMAL, 0);
     }
   }
+  embPattern_addStitchRel(pat, 0.0, 0.0, END, 0);
 
   if( ! embPattern_write(pat, filename) ){
     /* write failed */
