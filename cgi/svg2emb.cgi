@@ -15,9 +15,9 @@ cgi = CGI.new
 
 # check output format
 outfmt = cgi.params['out_format']
-if outfmt.is_a?(String) then
+if outfmt.is_a?(Array) && outfmt[0].is_a?(String) then
   # check correct format
-  outfmt.downcase!
+  outfmt = outfmt[0].downcase
   if ! ACCEPT_FORMATS.include?(outfmt) then
     # invalid format
     outfmt = DEFAULT_FORMAT
@@ -29,8 +29,8 @@ end
 
 # check mode
 mode = cgi.params['mode']
-if mode.is_a?(String) then
-  mode.downcase!
+if mode.is_a?(Array) && mode[0].is_a?(String) then
+  mode = mode[0].downcase
   if ! ACCEPT_MODES.include?(mode) then
     # invalid mode
     mode = DEFAULT_MODE
