@@ -10,6 +10,9 @@
   <style type="text/css">
 <!--
   .filebox { width:40em; }
+  fieldset dl { width:100%; }
+  fieldset dt { float:left; }
+  fieldset dd { margin-left:7em; }
   table {margin-left:auto; margin-right:auto;}
   .cmd {background-color:#cccccc; padding:0.4em; margin:0.1em; font-family:monospace; }
   .code {padding:0.4em; margin:0.3em; border-style:solid; border-width:1px;}
@@ -23,18 +26,26 @@
 <body>
 <form action="/cgi-bin/svg2emb.cgi" method="POST" enctype="multipart/form-data">
  <fieldset>
-  <legend>Convert SVG</legend>
+  <legend>Convert SVG to embroidery machine format</legend>
   <input type="hidden" name="out_format" value=".pes" >
-  <input type="file" name="svgfile" class="filebox" >
+  <dl>
+   <dt>SVG File:</dt>
+   <dd><input type="file" name="svgfile" class="filebox" ></dd>
+   <dt>SVG Type:</dt>
+   <dd>
+    <input type="radio" name="mode" value="normal" id="mode_normal" checked >
+    <label for="mode_normal" >Normal SVG</label>
+    , 
+    <input type="radio" name="mode" value="fritzing09" id="mode_fritzing09" >
+    <label for="mode_fritzing09" >Fritzing 0.9 SVG</label>
+   </dd>
+  </dl>
   <input type="submit" name="SEND" value="SEND" >
  </fieldset>
 </form>
 
 <h1>How to use</h1>
 
-<p lang="en">
-TBD.
-</p>
 <p lang="en">
 Send SVG file, then you can get embroidery machine format.
 </p>
@@ -49,7 +60,7 @@ You can download source code at:
 
 <hr>
 <address>
-2016-10-20 Hanabusa Masahiro
+2016-10-21 <a href="https://www.hanabusa.net/">Hanabusa Masahiro</a>
 </address>
 </body>
 </html>

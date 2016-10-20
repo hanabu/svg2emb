@@ -5,6 +5,8 @@ TMP_DIR = '/tmp'
 EXE_BIN = '/usr/local/bin/svg2emb'
 DEFAULT_FORMAT = '.pes'
 ACCEPT_FORMATS = [ '.dst', '.hus', '.jef', '.pes' ]
+DEFAULT_MODE = 'normal'
+ACCEPT_MODES = [ 'normal', 'fritzing09' ]
 
 require 'cgi'
 
@@ -25,6 +27,19 @@ else
   outfmt = DEFAULT_FORMAT 
 end
 
+# check mode
+mode = cgi.params['mode']
+if mode.is_a?(String) then
+  mode.downcase!
+  if ! ACCEPT_MODES.include?(mode) then
+    # invalid mode
+    mode = DEFAULT_MODE
+  end
+else
+  # mode not set in HTML form
+  mode = DEFAULT_MODE
+end
+
 uploadsvg = cgi.params['svgfile'][0]
 
 svgfile = File.join(TMP_DIR, "#{$$}.svg")
@@ -35,7 +50,7 @@ begin
     f.write(uploadsvg.read)
   end
 
-  pipeout = IO.popen([EXE_BIN, svgfile, embfile], 'r') { |io|
+  pipeout = IO.popen([EXE_BIN, '-m', mode, svgfile, embfile], 'r') { |io|
     io.gets
   }
   if $?.success? then
@@ -49,7 +64,7 @@ begin
     end
   else
     # failed to convert
-    print "Status: 500\r\n"
+    print "Status: 400\r\n"
     print "Content-Type: text/plain\r\n"
     print "\r\n"
     print "Convert failed.\r\n"
