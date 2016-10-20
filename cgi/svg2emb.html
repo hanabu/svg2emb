@@ -51,12 +51,46 @@ Send SVG file, then you can get embroidery machine format.
 </p>
 
 <hr>
-<h2>Source code access</h2>
+<h2>Compile svg2emb by yourself</h2>
 <p lang="en">
 svg2emb is licensed under BSD 3-Clause License.
 You can download source code at:
 <a href="https://github.com/hanabu/svg2emb">https://github.com/hanabu/svg2emb</a>
 </p>
+
+<p lang="en">
+On UNIX like system (*BSD, Linux, MacOS),
+you can compile svg2emb as following instruction.
+</p>
+
+<pre class="cmd">
+$ <kbd>git clone https://github.com/hanabu/svg2emb.git</kbd>
+$ <kbd>mkdir svg2emb/build</kbd>
+$ <kbd>cd svg2emb/build</kbd>
+$ <kbd>cmake ..</kbd>
+$ <kbd>make</kbd>
+</pre>
+<p lang="en">
+Then you can get svg2emb on svg2emb/build directory.
+</p>
+
+
+<h2>Changelog</h2>
+<dl>
+<dt>2016-10-21</dt>
+<dd>
+Make tripple stitch when stroke width &gt;=0.1mm (&gt;=0.28pt) .
+<br>
+Support SVG exported by Fritzing.
+</dd>
+
+<dt>2016-10-20</dt>
+<dd>
+Initial version, converting SVG path to single stitch.
+<br>
+Filled shapes are not supported yet.
+</dd>
+</dl>
 
 <hr>
 <address>
