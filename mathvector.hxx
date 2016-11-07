@@ -265,6 +265,14 @@ namespace math
       return sqrt(square_norm());
     }
 
+
+    /*
+     * make normalized vector ( |v|==1 )
+     */
+    inline vector<T,DIM> normalize() const{
+      return (*this) * (1.0/sqrt(square_norm()));
+    }
+
   }; /* end of class */
 
 
