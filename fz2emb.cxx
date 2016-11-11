@@ -34,7 +34,7 @@
 /*
  * run fz2emb as:
  *
- *  funzip input.fzz *.fz | fz2emb output.pes
+ *  funzip input.fzz | fz2emb output.pes
  */
 
 
@@ -50,6 +50,19 @@
 #include<libxml/xpath.h>
 
 #include<cubicbezier.hxx>
+
+
+static double xmlGetDoubleProp(xmlNodePtr xmlnode, const char* attrname)
+{
+  xmlChar* attr = xmlGetProp(xmlnode, (const xmlChar*)attrname);
+  if( NULL==attr ){
+    return nan(attrname);
+  }else{
+    double attrval = strtod((const char*) attr, NULL);
+    xmlFree(attr);
+    return attrval;
+  }
+}
 
 
 static
@@ -100,29 +113,12 @@ std::vector<std::vector<math::vector2d> > parse_fz() throw(std::runtime_error)
           xmlElemDump(stdout, xmldoc, xmlgeom);
           xmlChar* attr;
 
-          attr = xmlGetProp(xmlgeom, (const xmlChar*)"x");
-          double x = strtod((const char*) attr, NULL);
-          xmlFree(attr);
-
-          attr = xmlGetProp(xmlgeom, (const xmlChar*)"y");
-          double y = strtod((const char*) attr, NULL);
-          xmlFree(attr);
-
-          attr = xmlGetProp(xmlgeom, (const xmlChar*)"x1");
-          double x1 = strtod((const char*) attr, NULL);
-          xmlFree(attr);
-
-          attr = xmlGetProp(xmlgeom, (const xmlChar*)"y1");
-          double y1 = strtod((const char*) attr, NULL);
-          xmlFree(attr);
-
-          attr = xmlGetProp(xmlgeom, (const xmlChar*)"x2");
-          double x2 = strtod((const char*) attr, NULL);
-          xmlFree(attr);
-
-          attr = xmlGetProp(xmlgeom, (const xmlChar*)"y2");
-          double y2 = strtod((const char*) attr, NULL);
-          xmlFree(attr);
+          double x  = xmlGetDoubleProp(xmlgeom, "x");
+          double y  = xmlGetDoubleProp(xmlgeom, "y");
+          double x1 = xmlGetDoubleProp(xmlgeom, "x1");
+          double y1 = xmlGetDoubleProp(xmlgeom, "y1");
+          double x2 = xmlGetDoubleProp(xmlgeom, "x2");
+          double y2 = xmlGetDoubleProp(xmlgeom, "y2");
 
           printf("\n(%f,%f)-(%f,%f)\n", x+x1, y+y1, x+x2, y+y2);
         }

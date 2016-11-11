@@ -37,8 +37,9 @@
 #include<vector>
 #include<stdexcept>
 
+#include<mathtransm.hxx>
 #include<cubicbezier.hxx>
-
+#include<embwrite.hxx>
 
 
 /*
@@ -53,18 +54,6 @@
 #include<nanosvg/nanosvg.h>
 
 
-/*
- * Embroidermodder/libembroidery : Handles embroidery specific formats
- * https://github.com/Embroidermodder/Embroidermodder
- *
- * licensed under zlib license,
- * Copyright (c) 2011-2014
- *   Embroidermodder, Jonathan Greig, Josh Varga and all other contributers
- */
-#include<libembroidery/emb-color.h>
-#include<libembroidery/emb-thread.h>
-#include<libembroidery/emb-pattern.h>
-
 
 
 
@@ -75,199 +64,34 @@ static const float LINE_PITCH = 2.0;          /* mm */
 static const float TRIPLE_STITCH_WIDTH = 0.1; /* mm */
 
 
-/*
- * make star stitch for conductive thread connection
- */
-static std::vector<math::vector2d>
-make_star(const math::vector2d center, const float r)
-{
-  static const float vertex[][2] = {
-    {  1.000000,  0.000000 },
-    { -0.900969,  0.433884 },
-    {  0.623490, -0.781831 },
-    { -0.222521,  0.974928 },
-    { -0.222521, -0.974928 },
-    {  0.623490,  0.781831 },
-    { -0.900969, -0.433884 },
-  };
-
-  std::vector<math::vector2d> points;
-  points.reserve(8);
-  for(int i=0; i<7; ++i){
-    math::vector2d pos(vertex[i]);
-    points.push_back(center + pos*r);
-  }
-  points.push_back(points.front());
-  return points;
-}
-
-
-/*
- * Make points on SVG path
- */
-static std::vector<math::vector2d>
-make_points_on_path(const NSVGshape* shape,
-                    const float pitch)
-{
-  for(NSVGpath* path=shape->paths; NULL!=path; path=path->next){
-    std::vector<math::vector2d> points;
-    math::vector2d lastpt;
-    float carryov = 0.0;
-
-    for(int i=0; i<path->npts-1; i+=3) {
-      math::vector2d p0(&path->pts[i*2  ]);
-      math::vector2d p1(&path->pts[i*2+2]);
-      math::vector2d p2(&path->pts[i*2+4]);
-      math::vector2d p3(&path->pts[i*2+6]);
-      lastpt = p3;
-
-      /* create bezier curve */
-      CubicBezier<float,2> curve(p0, p1, p2, p3);
-
-      /* add point at every pitch */
-      float t=0.0;
-      carryov = curve.move_on_curve(t, carryov);
-      while( t<1.0 ){
-        points.push_back( curve.curve(t) );
-        /* go next stitch */
-        carryov = curve.move_on_curve(t, pitch);
-      }
-    }
-    if( 0.25*pitch > carryov  ){
-      /* move last point */
-      points.back() = lastpt;
-    }else{
-      /* add one more point at last */
-      points.push_back(lastpt);
-    }
-    
-    return points;
-  }
-}
-
-
-
-/*
- * path as single stitch
- */
-static std::vector<math::vector2d>
-make_single_stitch(const NSVGshape* shape, const float pitch,
-                   bool startstar, bool endstar)
-{
-  std::vector<math::vector2d> points
-    = make_points_on_path(shape, pitch);
-
-  if( startstar || endstar ){
-    if( 1>=points.size() ){
-      /* too few points (too short segment) */
-      return points;
-    }
-
-    std::vector<math::vector2d> stitchsegment;
-    stitchsegment.reserve(stitchsegment.size()+16);
-
-    if( startstar ){
-      /* make star at start */
-      std::vector<math::vector2d> star
-        = make_star(points.front(), 0.5*pitch);
-      stitchsegment.insert(stitchsegment.end(), star.begin(), star.end());
-    }
-
-    /* join points */
-    stitchsegment.insert(stitchsegment.end(), points.begin(), points.end());
-
-    if( endstar ){
-      /* make star at end */
-      std::vector<math::vector2d> star
-        = make_star(points.back(), 0.5*pitch);
-      stitchsegment.insert(stitchsegment.end(), star.begin(), star.end());
-    }
-
-    return stitchsegment;
-  }else{
-    /* no star, stitches are points only*/
-    return points;
-  }
-}
-
-
-/*
- * path as tripple stitch
- */
-static std::vector<math::vector2d>
-make_tripple_stitch(const NSVGshape* shape, const float pitch,
-                    bool startstar, bool endstar)
-{
-  std::vector<math::vector2d> points
-    = make_points_on_path(shape, pitch);
-
-  if( 1>=points.size() ){
-    /* Too short path */
-    return points;
-  }
-
-  std::vector<math::vector2d> stitchsegment;
-  stitchsegment.reserve(stitchsegment.size()*3 + 16);
-  
-  /* first pass */
-  stitchsegment.insert(stitchsegment.end(), points.begin(), points.end());
-
-  if( endstar ){
-    /* make star at end */
-    std::vector<math::vector2d> star
-      = make_star(points.back(), 0.5*pitch);
-    stitchsegment.insert(stitchsegment.end(), star.begin(), star.end());
-  }
-
-  /* second pass, reverse order */
-  stitchsegment.insert(stitchsegment.end(), points.rbegin(), points.rend());
-
-  if( startstar ){
-    /* make star at start */
-    std::vector<math::vector2d> star
-      = make_star(points.front(), 0.5*pitch);
-    stitchsegment.insert(stitchsegment.end(), star.begin(), star.end());
-  }
-
-  /* third pass */
-  stitchsegment.insert(stitchsegment.end(), points.begin(), points.end());
-
-  return stitchsegment;
-}
-
-
-
-/* ========================================================================= */
-
 
 class SVGParser {
 public:
   virtual void
   parse_shape(const NSVGshape* shape,
-              std::vector<std::vector<math::vector2d> >& stitches) const = 0;
+              EmbroideryWriter& emb) const = 0;
 };
 
 class SVGParserNormal : public SVGParser {
 public:
-  void parse_shape(const NSVGshape* shape,
-                   std::vector<std::vector<math::vector2d> >& stitches) const
+  void parse_shape(const NSVGshape* shape, EmbroideryWriter& emb) const
   {
     if( NSVG_PAINT_NONE!=shape->fill.type ){
       /* TODO : implement filled shape */
     }
     if( NSVG_PAINT_COLOR==shape->stroke.type ){
       /* Trace path */
-      std::vector<math::vector2d> stitchsegment;
-      if( TRIPLE_STITCH_WIDTH <= shape->strokeWidth ){
-        /* wide stroke => tipple stitch */
-        stitchsegment = make_tripple_stitch(shape, LINE_PITCH, false, false);
-      }else{
-        /* narrow stroke => single stitch */
-        stitchsegment = make_single_stitch(shape, LINE_PITCH, false, false);
-      }
-
-      if( 2<=stitchsegment.size() ){
-        stitches.push_back(stitchsegment);
+      for(NSVGpath* path=shape->paths; NULL!=path; path=path->next){
+        std::vector<math::vector2d> points
+          = EmbroideryWriter::make_points_on_bezier(path->pts, path->npts,
+                                                  LINE_PITCH);
+        if( TRIPLE_STITCH_WIDTH <= shape->strokeWidth ){
+          /* wide stroke => tipple stitch */
+          emb.add_tripple_stitch(points, LINE_PITCH, false, false);
+        }else{
+          /* narrow stroke => single stitch */
+          emb.add_single_stitch(points, LINE_PITCH, false, false);
+        }
       }
     }
   }
@@ -279,29 +103,28 @@ public:
  */
 class SVGParserFritzing09 : public SVGParser {
 public:
-  void parse_shape(const NSVGshape* shape,
-                   std::vector<std::vector<math::vector2d> >& stitches) const
+  void parse_shape(const NSVGshape* shape, EmbroideryWriter& emb) const
   {
     if( NSVG_PAINT_COLOR==shape->stroke.type ){
       if( 0==strcmp(shape->id, "boardoutline") ){
         /* ignore outline */
       }else if( 0==strncmp(shape->id, "connector", 9) ){
         /* pad/hole */
-        std::vector<math::vector2d> stitchsegment;
-        stitchsegment = make_tripple_stitch(shape, 0.5*LINE_PITCH, false,false);
-      
-        if( 2<=stitchsegment.size() ){
-          stitches.push_back(stitchsegment);
-        }
+        for(NSVGpath* path=shape->paths; NULL!=path; path=path->next){
+          std::vector<math::vector2d> points
+            = EmbroideryWriter::make_points_on_bezier(path->pts, path->npts,
+                                                  LINE_PITCH);
+          emb.add_tripple_stitch(points, 0.5*LINE_PITCH, false,false);
+        } 
       }else{
         /* this path should be wire, */
         /* trace path with tripple stitch */
-        std::vector<math::vector2d> stitchsegment;
-        stitchsegment = make_tripple_stitch(shape, LINE_PITCH, true, true);
-      
-        if( 2<=stitchsegment.size() ){
-          stitches.push_back(stitchsegment);
-        }
+        for(NSVGpath* path=shape->paths; NULL!=path; path=path->next){
+          std::vector<math::vector2d> points
+            = EmbroideryWriter::make_points_on_bezier(path->pts, path->npts,
+                                                  LINE_PITCH);
+          emb.add_tripple_stitch(points, LINE_PITCH, true, true);
+        } 
       }
     }
   }
@@ -314,12 +137,10 @@ public:
 /*
  * Parse SVG, make stitches
  */
-std::vector<std::vector<math::vector2d> >
-parse_SVG(const char* filename, const SVGParser& parser)
+void
+parse_SVG(const char* filename, const SVGParser& parser, EmbroideryWriter& emb)
   throw(std::runtime_error)
 {
-  std::vector<std::vector<math::vector2d> > stitches;
-
   /* read SVG */
   struct NSVGimage* svg;
   svg = nsvgParseFromFile(filename, "mm", 90);
@@ -333,57 +154,11 @@ parse_SVG(const char* filename, const SVGParser& parser)
       /* skip hidden shapes */
       continue;
     }
-    parser.parse_shape(shape, stitches);
+    parser.parse_shape(shape, emb);
   }
 
   /* relase SVG */
   nsvgDelete(svg);
-
-  return stitches;
-}
-
-
-/*
- * Save stitches as embroidery machine format
- */
-static void
-save_embroidery(const char* filename,
-                const std::vector<std::vector<math::vector2d> > stitches)
-  throw(std::runtime_error)
-{
-  EmbColor black = { 0, 0, 0 };
-  EmbThread thread = { black, "Black", "900" };
-  EmbPattern* pat;
-
-  pat = embPattern_create();
-
-  /* set thread & color */
-  embPattern_addThread(pat, thread);
-  embPattern_changeColor(pat, 0);
-
-  for(size_t i=0; i<stitches.size(); ++i){
-    std::vector<math::vector2d> stitchsegment = stitches[i];
-
-    for(size_t j=0; j<stitchsegment.size(); ++j){
-      math::vector2d pos = stitchsegment[j];
-
-      if( 0==j ){
-        if( 0<i ){
-          /* cut thread */
-          embPattern_addStitchAbs(pat, pos[0], -pos[1], TRIM, 0);
-        }
-        /* jump to new segment */
-        embPattern_addStitchAbs(pat, pos[0], -pos[1], JUMP, 0);
-      }
-      embPattern_addStitchAbs(pat, pos[0], -pos[1], NORMAL, 0);
-    }
-  }
-  embPattern_addStitchRel(pat, 0.0, 0.0, END, 0);
-
-  if( ! embPattern_write(pat, filename) ){
-    /* write failed */
-    throw std::runtime_error("Failed to write embroidery file.");
-  }  
 }
 
 
@@ -447,17 +222,16 @@ int main(int argc, char* argv[])
   }
 
   try{
-
-    std::vector<std::vector<math::vector2d> > stitches
-      = parse_SVG(svgfile, *svg_parser);
-    if( stitches.empty() ){
+    EmbroideryWriter emb;
+    parse_SVG(svgfile, *svg_parser, emb);
+    if( emb.is_empty() ){
       fputs("Empty SVG.\n", stdout);
       return 1;
     }
 
     /* ToDo : reorder stitches */
 
-    save_embroidery(outfile, stitches);
+    emb.write(outfile);
 
     return 0;
   }catch(std::exception e){

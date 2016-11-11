@@ -7,6 +7,7 @@ include_directories( . )
 
 add_executable(svg2emb
   svg2emb.cxx
+  embwrite.cxx
 )
 target_link_libraries(svg2emb embroidery m)
 
@@ -14,6 +15,7 @@ target_link_libraries(svg2emb embroidery m)
 if( BUILD_FZ2EMB )
   add_executable(fz2emb
     fz2emb.cxx
+    embwrite.cxx
   )
   find_package(LibXml2 REQUIRED)
   include_directories(${LIBXML2_INCLUDE_DIR})
