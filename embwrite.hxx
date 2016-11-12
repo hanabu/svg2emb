@@ -52,12 +52,13 @@ public:
   bool is_empty() const;
   void write(const char* filename) const throw(std::runtime_error);
  
-  void add_single_stitch(std::vector<math::vector2d> points,
+  void add_single_stitch(const std::vector<math::vector2d>& points,
                          float starsize,
                          bool startstar, bool endstar);
-  void add_tripple_stitch(std::vector<math::vector2d> points,
+  void add_tripple_stitch(const std::vector<math::vector2d>& points,
                           float starsize,
                           bool startstar, bool endstar);
+  void add_star(const math::vector2d& p, float starsize);
  
 
   static std::vector<math::vector2d>

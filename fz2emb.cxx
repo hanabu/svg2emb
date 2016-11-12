@@ -43,6 +43,7 @@
 #include<cstring>
 #include<memory>
 #include<set>
+#include<list>
 #include<vector>
 #include<stdexcept>
 
@@ -56,6 +57,8 @@
 
 /* Fritzing unit (1/100in) to mm */
 #define fz2mm(fz) (0.254*(fz))
+
+#define iabs(i) ((0<=(i))?(i):(-i))
 
 static const float LINE_PITCH = 2.0;  /* mm */
 static const char* WIRE_MODULEID = "WireModuleID";
@@ -75,10 +78,11 @@ private:
   };
 
   std::vector<FzPoint> points;
-  std::vector<std::vector<int> > wires;
+  std::vector<std::pair<int,int> > wires;
 
 protected:
-  int find_or_add_point(const math::vector2d& point, bool connectboard){
+  int find_or_add_point(const math::vector2d& point, bool connectboard)
+  {
     for(int i=0; i<points.size(); ++i){
       if( 0.01 > (point-points[i].p).square_norm() ){
         /* near point found */
@@ -92,6 +96,33 @@ protected:
     return points.size()-1;
   }
 
+  int find_next_merge_point(int ptidx, std::vector<bool>& wireprocessed) const
+  {
+    if( 2!=points[ptidx].wires.size() ){
+      return -1;
+    }
+     
+    /* connect other wire at ptidx */
+    int otherwire = points[ptidx].wires[0];
+    if( wireprocessed[ otherwire ] ){
+      otherwire = points[ptidx].wires[1];
+    }
+
+    if( wireprocessed[ otherwire ] ){
+      /* can not merge (in case, last point of loop wire) */
+      return -1;
+    }
+
+    wireprocessed[otherwire] = true;
+
+    /* next merge point */
+    if( wires[otherwire].first == ptidx ){
+      return wires[otherwire].second;
+    }else{
+      return wires[otherwire].first;
+    }
+  }
+
 public:
   FzWires()
   {
@@ -101,11 +132,14 @@ public:
   void add_wire(const math::vector2d& p1, const math::vector2d& p2,
                 bool connectboard1, bool connectboard2)
   {
-    std::vector<int> wire;
-    wire.push_back( find_or_add_point(p1, connectboard1) );
-    wire.push_back( find_or_add_point(p2, connectboard2) );
-
+    std::pair<int,int> wire(find_or_add_point(p1, connectboard1),
+                            find_or_add_point(p2, connectboard2) );
+    
     wires.push_back(wire);
+
+    int wireid = wires.size()-1;
+    points[wire.first] .wires.push_back(wireid);
+    points[wire.second].wires.push_back(wireid);
   }
 
 
@@ -113,18 +147,68 @@ public:
   {
     EmbroideryWriter emb;
 
-    for(int i=0; i<wires.size(); ++i){
-      FzPoint& p1 = points[wires[i][0]];
-      FzPoint& p2 = points[wires[i][1]];
 
-      float len = (p2.p-p1.p).norm();
-      int pts = (int)(len/LINE_PITCH)+1;
-      std::vector<math::vector2d> points;
-      for(int j=0; j<=pts; ++j){
-        points.push_back(p1.p + ((float)j/(float)pts)*(p2.p-p1.p));
+    /* merge lines */
+    std::vector<bool> wireprocessed(wires.size(), false);
+    for(int i=0; i<wires.size(); ++i){
+      if( wireprocessed[i] ){
+        /* this wire is already processed, skip */
+        continue;
       }
-      emb.add_tripple_stitch(points, LINE_PITCH,
-                             p1.conn, p2.conn);
+      std::list<int> wirepoints;
+
+      /* start merging wire */
+      int ptidx1 = wires[i].first;
+      int ptidx2 = wires[i].second;
+      wireprocessed[i] = true;
+      wirepoints.push_back(ptidx1);
+      wirepoints.push_back(ptidx2);
+
+      while( 0<=ptidx1 ){
+        /* find next point */
+        ptidx1 = find_next_merge_point(ptidx1, wireprocessed);
+        if( 0<=ptidx1  ){
+          wirepoints.push_front(ptidx1);
+        }
+      }
+      while( 0<=ptidx2 ){
+        /* find next point */
+        ptidx2 = find_next_merge_point(ptidx2, wireprocessed);
+        if( 0<=ptidx2  ){
+          wirepoints.push_back(ptidx2);
+        }
+      }
+
+      
+      std::vector<math::vector2d> stitchsegment;
+      std::list<int>::const_iterator it=wirepoints.begin();
+      int befidx = *it;
+      for(++it; it!=wirepoints.end(); ++it){
+        math::vector2d& p1 = points[befidx].p;
+        math::vector2d& p2 = points[*it   ].p;
+        befidx = *it;
+
+        float len = (p2-p1).norm();
+        int pts = (int)(len/LINE_PITCH)+1;
+        for(int j=0; j<pts; ++j){
+          stitchsegment.push_back(p1 + ((float)j/(float)pts)*(p2-p1));
+        }
+      }
+      stitchsegment.push_back(points[befidx].p);
+
+      emb.add_tripple_stitch(stitchsegment, LINE_PITCH, false, false);
+    }
+
+
+    for(int i=0; i<points.size(); ++i){
+      if( 3<=points[i].wires.size() ){
+        /* wire junction, make star */
+        emb.add_star(points[i].p, LINE_PITCH);
+      }
+      if( points[i].conn ){
+        /* PCB connection */
+        emb.add_star(points[i].p, LINE_PITCH);
+      }
     }
 
     return emb;
@@ -260,9 +344,9 @@ static FzWires parse_fritzing_wires() throw(std::runtime_error)
         double x2 = xmlGetDoubleProp(xmlgeoms[0], "x2");
         double y2 = xmlGetDoubleProp(xmlgeoms[0], "y2");
 
-        if( ! ( isnan(x ) || isnan(y ) ||
-                isnan(x1) || isnan(y1) ||
-                isnan(x2) || isnan(y2) ) ){
+        if( ! ( std::isnan(x ) || std::isnan(y ) ||
+                std::isnan(x1) || std::isnan(y1) ||
+                std::isnan(x2) || std::isnan(y2) ) ){
           /* valid wire node, make line */
           math::vector2d p1(fz2mm(x+x1), fz2mm(y+y1));
           math::vector2d p2(fz2mm(x+x2), fz2mm(y+y2));

@@ -178,9 +178,10 @@ void EmbroideryWriter::write(const char* filename)
 /*
  * path as single stitch
  */
-void EmbroideryWriter::add_single_stitch(std::vector<math::vector2d> points,
-                                         float starsize,
-                                         bool startstar, bool endstar)
+void
+EmbroideryWriter::add_single_stitch(const std::vector<math::vector2d>& points,
+                                    float starsize,
+                                    bool startstar, bool endstar)
 {
   if( startstar || endstar ){
     if( 1>=points.size() ){
@@ -219,9 +220,10 @@ void EmbroideryWriter::add_single_stitch(std::vector<math::vector2d> points,
 /*
  * path as tripple stitch
  */
-void EmbroideryWriter::add_tripple_stitch(std::vector<math::vector2d> points,
-                                          float starsize,
-                                          bool startstar, bool endstar)
+void
+EmbroideryWriter::add_tripple_stitch(const std::vector<math::vector2d>& points,
+                                     float starsize,
+                                     bool startstar, bool endstar)
 {
   if( 1>=points.size() ){
     /* Too short path */
@@ -255,5 +257,16 @@ void EmbroideryWriter::add_tripple_stitch(std::vector<math::vector2d> points,
   stitchsegment.insert(stitchsegment.end(), points.begin(), points.end());
 
   stitches.push_back(stitchsegment);
+}
+
+
+/*
+ * Add star only
+ */
+void EmbroideryWriter::add_star(const math::vector2d& p, float starsize)
+{
+    std::vector<math::vector2d> star
+      = make_star(p, 0.5*starsize);
+  stitches.push_back(star);
 }
 
