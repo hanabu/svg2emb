@@ -12,7 +12,7 @@
   .filebox { width:40em; }
   fieldset dl { width:100%; }
   fieldset dt { float:left; }
-  fieldset dd { margin-left:7em; }
+  fieldset dd { margin-left:12em; }
   table {margin-left:auto; margin-right:auto;}
   .cmd {background-color:#cccccc; padding:0.4em; margin:0.1em; font-family:monospace; }
   .code {padding:0.4em; margin:0.3em; border-style:solid; border-width:1px;}
@@ -26,11 +26,24 @@
 <body>
 <form action="/cgi-bin/svg2emb.cgi" method="POST" enctype="multipart/form-data">
  <fieldset>
-  <legend>Convert SVG to embroidery machine format</legend>
-  <input type="hidden" name="out_format" value=".pes" >
+  <legend>Terms of use</legend>
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISE OF THE POSSIBILITY OF SUCH DAMAGE.
+ </fieldset>
+ <fieldset>
+  <legend>Convert SVG / Fritzing.fzz to embroidery machine format</legend>
   <dl>
-   <dt>SVG File:</dt>
-   <dd><input type="file" name="svgfile" class="filebox" ></dd>
+   <dt>SVG or Fritzing.fzz File:</dt>
+   <dd><input type="file" name="file" class="filebox" ></dd>
+<!--
    <dt>SVG Type:</dt>
    <dd>
     <input type="radio" name="mode" value="normal" id="mode_normal" checked >
@@ -38,6 +51,16 @@
     , 
     <input type="radio" name="mode" value="fritzing09" id="mode_fritzing09" >
     <label for="mode_fritzing09" >Fritzing 0.9 SVG</label>
+   </dd>
+  </dl>
+-->
+   <dt>Output format:</dt>
+   <dd>
+    <input type="radio" name="out_format" value=".pes" id="fmt_pes" checked>
+    <label for="fmt_pes" >.pes (Brother)</label>
+    , 
+    <input type="radio" name="out_format" value=".svg" id="fmt_svg">
+    <label for="fmt_svg" >SVG preview</label>
    </dd>
   </dl>
   <input type="submit" name="SEND" value="SEND" >
@@ -67,7 +90,7 @@ you can compile svg2emb as following instruction.
 $ <kbd>git clone https://github.com/hanabu/svg2emb.git</kbd>
 $ <kbd>mkdir svg2emb/build</kbd>
 $ <kbd>cd svg2emb/build</kbd>
-$ <kbd>cmake ..</kbd>
+$ <kbd>cmake -DBUILD_FZ2EMB=ON ..</kbd>
 $ <kbd>make</kbd>
 </pre>
 <p lang="en">
@@ -77,6 +100,10 @@ Then you can get svg2emb on svg2emb/build directory.
 
 <h2>Changelog</h2>
 <dl>
+<dt>2016-11-11</dt>
+<dd>
+Fritzing .fzz to embroidery direct convert.
+</dd>
 <dt>2016-10-21</dt>
 <dd>
 Make tripple stitch when stroke width &gt;=0.1mm (&gt;=0.28pt) .
