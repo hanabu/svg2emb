@@ -50,6 +50,7 @@ public:
   EmbroideryWriter();
 
   bool is_empty() const;
+  void optimize_order();
   void write(const char* filename) const throw(std::runtime_error);
  
   void add_single_stitch(const std::vector<math::vector2d>& points,

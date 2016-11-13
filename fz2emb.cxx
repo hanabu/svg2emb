@@ -423,8 +423,7 @@ int main(int argc, char* argv[])
       return 1;
     }
 
-    /* ToDo : reorder stitches */
-
+    emb.optimize_order();
     emb.write(outfile);
 
     return 0;

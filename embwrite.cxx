@@ -31,7 +31,9 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include<embwrite.hxx>
+#include<cassert>
 #include<cmath>
+#include<list>
 #include<vector>
 #include<stdexcept>
 
@@ -51,6 +53,14 @@
 #include<libembroidery/emb-color.h>
 #include<libembroidery/emb-thread.h>
 #include<libembroidery/emb-pattern.h>
+
+
+struct connect{
+  int stitch1;
+  int frontback1;
+  int stitch2;
+  int frontback2;
+};
 
 
 
@@ -74,6 +84,121 @@ make_star(const math::vector2d center, const float r)
 
 /* ========================================================================= */
 
+class MergedStitch
+{
+private:
+  /* vector< pair< stitch id , reverse> > */
+  std::list< std::pair<int,bool> > stitchids;
+public:
+  MergedStitch(int stitchid) :
+    stitchids(1, std::pair<int,bool>(stitchid, false))
+  {
+  }
+
+
+  void merge(const MergedStitch& other, bool thisback, bool otherback)
+  {
+    if( thisback ){
+      if( otherback ){
+        /* push_back( reverse(other) ) */
+        std::list< std::pair<int,bool> >::const_reverse_iterator it;
+        for(it=other.stitchids.rbegin(); it!=other.stitchids.rend(); ++it){
+          stitchids.push_back( std::pair<int,bool>(it->first, !it->second) );
+        }
+      }else{
+        /* push_back( other ) */
+        std::list< std::pair<int,bool> >::const_iterator it;
+        for(it=other.stitchids.begin(); it!=other.stitchids.end(); ++it){
+          stitchids.push_back( std::pair<int,bool>(it->first, it->second) );
+        }
+      }
+    }else{
+      if( otherback ){
+        /* other.push_front(other) */
+        std::list< std::pair<int,bool> >::const_reverse_iterator it;
+        for(it=other.stitchids.rbegin(); it!=other.stitchids.rend(); ++it){
+          stitchids.push_back( std::pair<int,bool>(it->first, it->second) );
+        }
+      }else{
+        /* push_front( reverse(other) ) */
+        std::list< std::pair<int,bool> >::const_iterator it;
+        for(it=other.stitchids.begin(); it!=other.stitchids.end(); ++it){
+          stitchids.push_back( std::pair<int,bool>(it->first, !it->second) );
+        }
+      }
+    }
+  }
+
+
+  std::pair<math::vector2d,math::vector2d>
+  edge_points(const std::vector<std::vector<math::vector2d> >& stitches) const
+  {
+    std::pair<math::vector2d,math::vector2d> edgepoints;
+    if( stitchids.front().second ){
+      edgepoints.first = stitches[stitchids.front().first].back();
+    }else{
+      edgepoints.first = stitches[stitchids.front().first].front();
+    }
+    if( stitchids.back().second ){
+      edgepoints.second = stitches[stitchids.back().first].front();
+    }else{
+      edgepoints.second = stitches[stitchids.back().first].back();
+    }
+
+    return edgepoints;
+  }
+
+
+  std::pair< float,std::pair<bool,bool> >
+  calc_distance(const MergedStitch& other,
+                const std::vector<std::vector<math::vector2d> >& stitches) const
+  {
+    std::pair<math::vector2d,math::vector2d> thisedge
+      = edge_points(stitches);
+    std::pair<math::vector2d,math::vector2d> otheredge
+      = other.edge_points(stitches);
+    std::pair<bool,bool> backflag;
+    float dist;
+    float min_dist;
+
+    dist = (thisedge.first-otheredge.first).square_norm();
+    min_dist = dist;
+    backflag.first = false; backflag.second = false;
+
+    dist = (thisedge.first-otheredge.second).square_norm();
+    if( dist < min_dist ){
+      min_dist = dist;
+      backflag.first = false; backflag.second = true;
+    }
+    dist = (thisedge.second-otheredge.first).square_norm();
+    if( dist < min_dist ){
+      min_dist = dist;
+      backflag.first = true; backflag.second = false;
+    }
+    dist = (thisedge.second-otheredge.second).square_norm();
+    if( dist < min_dist ){
+      min_dist = dist;
+      backflag.first = true; backflag.second = true;
+    }
+
+    return std::pair<float,std::pair<bool,bool> >(min_dist, backflag);
+  }
+
+
+  std::list< std::pair<int,bool> >::const_iterator begin() const
+  {
+    return stitchids.begin();
+  }
+
+  std::list< std::pair<int,bool> >::const_iterator end() const
+  {
+    return stitchids.end();
+  }  
+};
+
+/* ========================================================================= */
+/*  Implementation  of  EmbroideryWriter                                     */
+/* ========================================================================= */
 
 /*
  * Default constructor
@@ -135,6 +260,129 @@ bool EmbroideryWriter::is_empty() const
 
 
 /*
+ * Optimize stitch order to minimize jumps
+ */
+void EmbroideryWriter::optimize_order()
+{
+  if( 1>=stitches.size() ){
+    /* only one stitch, no optimization needed */
+    return;
+  }
+
+
+  /* Create initial merged stitches */
+  std::list<MergedStitch> merged;
+  for(int i=0; i<stitches.size(); ++i){
+    merged.push_back(MergedStitch(i));
+  }
+
+  while( 1<merged.size() ){
+    float max_dist = 0.0;
+    std::list<MergedStitch>::iterator max_i=merged.begin();
+    std::list<MergedStitch>::iterator max_j=merged.begin();
+    std::pair<bool,bool> max_backflag(false, false);
+
+    /* find farest stitch segment */
+    for(std::list<MergedStitch>::iterator i=merged.begin();
+        i!=merged.end(); ++i){
+
+      std::pair<math::vector2d,math::vector2d> edgei
+        = i->edge_points(stitches);
+      
+      /* find nearest other stitch segment from stitch[i] */
+      float min_dist = 1.0e+10;
+      std::list<MergedStitch>::iterator min_j=merged.begin();
+      std::pair<bool,bool> min_backflag(false, false);
+      for(std::list<MergedStitch>::iterator j=merged.begin();
+          j!=merged.end(); ++j){
+        if( i==j ){ continue; }
+        
+        std::pair<float, std::pair<bool,bool> > dist
+          = i->calc_distance(*j, stitches);
+        if( dist.first < min_dist ){
+          min_dist     = dist.first;         
+          min_backflag = dist.second;
+          min_j = j;
+        }
+      }
+
+      if( min_dist<1.0e+10 && max_dist<min_dist ){
+        max_dist = min_dist;
+        max_i = i;
+        max_j = min_j;
+        max_backflag = min_backflag;
+      }
+    }
+
+    /* stitch segment max_i is farest segment from other */
+    /* merge max_i and max_j  */
+    max_i->merge(*max_j, max_backflag.first, max_backflag.second);
+    merged.erase(max_j);    
+  }
+
+
+  /* find largest distance in merged */
+  /* (start&finish at largest distance) */
+  const MergedStitch allmerged = merged.front();
+  std::list<std::pair<int,bool> >::const_iterator it=allmerged.begin();
+  std::list<std::pair<int,bool> >::const_iterator startit = it;
+  float max_dist = 0.0;
+  for(;;){
+    std::list<std::pair<int,bool> >::const_iterator curr = it;
+    std::list<std::pair<int,bool> >::const_iterator next = ++it;
+    if( next==allmerged.end() ){
+      break;
+    }
+
+    math::vector2d currbackp;
+    if( curr->second ){
+      currbackp = stitches[curr->first].front();
+    }else{
+      currbackp = stitches[curr->first].back();
+    }
+    math::vector2d nextfrontp;
+    if( next->second ){
+      nextfrontp = stitches[next->first].back();
+    }else{
+      nextfrontp = stitches[next->first].front();
+    }
+
+    float dist = (nextfrontp - currbackp).square_norm();
+    if( max_dist < dist ){
+      max_dist = dist;
+      startit = next;
+    }
+  }
+
+  
+  /* reorder stitches */
+  std::vector<std::vector<math::vector2d> > newstitches;
+  for(it=startit; it!=allmerged.end(); ++it){
+    if( it->second ){
+      /* reverse order */
+      newstitches.push_back(
+        std::vector<math::vector2d>(stitches[it->first].rbegin(),
+                                    stitches[it->first].rend())
+                            );
+    }else{
+      newstitches.push_back(stitches[it->first]);
+    }
+  }
+  for(it=allmerged.begin(); it!=startit; ++it){
+    if( it->second ){
+      /* reverse order */
+      newstitches.push_back(
+        std::vector<math::vector2d>(stitches[it->first].rbegin(),
+                                    stitches[it->first].rend())
+                            );
+    }else{
+      newstitches.push_back(stitches[it->first]);
+    }
+  }
+}
+
+
+/*
  * Write embroidery format
  */
 void EmbroideryWriter::write(const char* filename)
@@ -151,7 +399,7 @@ void EmbroideryWriter::write(const char* filename)
   embPattern_changeColor(pat, 0);
 
   for(size_t i=0; i<stitches.size(); ++i){
-    std::vector<math::vector2d> stitchsegment = stitches[i];
+    const std::vector<math::vector2d>& stitchsegment = stitches[i];
 
     for(size_t j=0; j<stitchsegment.size(); ++j){
       math::vector2d pos = stitchsegment[j];
