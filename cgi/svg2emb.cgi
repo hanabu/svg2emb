@@ -60,8 +60,15 @@ else
 end
 
 
-
-uploadsvg = cgi.params['file'][0]
+uploadsvg = cgi.files['file']
+if !uploadsvg then
+  # file not uploaded
+  print "Status: 400\r\n"
+  print "Content-Type: text/plain\r\n"
+  print "\r\n"
+  print "No upload file.\r\n"
+  exit 1
+end
 
 tmpfile = File.join(TMP_DIR, "#{timestamp}_#{$$}.in")
 embfile = File.join(TMP_DIR, "#{timestamp}_#{$$}#{outfmt}")
